@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>记账本 Pro · 还款专用</title>
+    <title>记账本 Pro · 保险与公积金</title>
     <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%E8%AE%B0%E8%B4%A6%E6%9C%AC%22%2C%22short_name%22%3A%22%E8%AE%B0%E8%B4%A6%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f5f6f8%22%2C%22theme_color%22%3A%22%231a1a2e%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%253E%253Crect%20width%3D'100'%20height%3D'100'%20rx%3D'20'%20fill%3D'%231a1a2e'%2F%253E%253Ctext%20x%3D'50'%20y%3D'68'%20font-size%3D'60'%20text-anchor%3D'middle'%20fill%3D'white'%20font-family%3D'sans-serif'%253E%25F0%259F%2593%2592%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22100x100%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231a1a2e'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white'%3E📒%3C/text%3E%3C/svg%3E">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
     <style>
         :root {
             --wechat: #07C160; --wechat-light: #e8f8ef; --wechat-dark: #05a050;
@@ -27,8 +28,8 @@
         .header { background:var(--card); padding:10px 20px 6px; position:sticky; top:0; z-index:50; }
         .header-top { display:flex; align-items:center; justify-content:space-between; }
         .app-title { font-size:20px; font-weight:700; color:var(--text); }
-        .toolbar { display:flex; gap:8px; margin-top:10px; padding-bottom:8px; }
-        .tool-btn { flex:1; padding:8px 0; border-radius:20px; border:1.5px solid var(--border); background:var(--card); font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; color:var(--text-secondary); }
+        .toolbar { display:flex; gap:8px; margin-top:10px; padding-bottom:8px; flex-wrap:wrap; }
+        .tool-btn { flex:1; min-width:70px; padding:8px 0; border-radius:20px; border:1.5px solid var(--border); background:var(--card); font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; color:var(--text-secondary); }
         .tool-btn.primary { border-color:#1a1a2e; color:#1a1a2e; }
         .month-selector { display:flex; align-items:center; gap:6px; background:var(--bg); border-radius:20px; padding:6px 12px; cursor:pointer; font-size:14px; font-weight:600; }
         .month-nav-btn { width:30px; height:30px; border-radius:50%; border:none; background:var(--bg); cursor:pointer; }
@@ -60,6 +61,14 @@
         .btn-confirm { background:#1a1a2e; color:#fff; } .btn-cancel { background:var(--bg); }
         .cat-option { text-align:center; padding:8px 2px; border:2px solid transparent; border-radius:10px; font-size:11px; }
         .cat-option.selected { border-color:#1a1a2e; background:#f9fafb; }
+        .calc-btn { width:100%; aspect-ratio:1; border-radius:12px; border:2px solid var(--border); background:var(--card); font-size:20px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:0.2s; }
+        .calc-btn:active { transform:scale(0.92); background:#f0f0f0; }
+        .calc-btn.operator { background:#e8ecf1; border-color:#d1d5db; }
+        .calc-btn.equals { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+        .chart-container { width:100%; height:300px; margin-bottom:20px; }
+        .chart-tabs { display:flex; gap:8px; margin-bottom:16px; }
+        .chart-tab { flex:1; padding:10px; border-radius:12px; border:2px solid var(--border); background:var(--card); font-weight:600; cursor:pointer; text-align:center; }
+        .chart-tab.active { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
     </style>
 </head>
 <body>
@@ -77,6 +86,7 @@
         <div class="toolbar">
             <button class="tool-btn" id="btnImport"><span>📥</span> 导入</button>
             <button class="tool-btn primary" id="btnExport"><span>📤</span> 导出</button>
+            <button class="tool-btn" id="btnAnalysis"><span>📊</span> 分析</button>
         </div>
     </div>
     <div class="stats-row" id="statsRow">
@@ -102,7 +112,15 @@
                 <button class="expense-active active" data-type="expense" style="flex:1;padding:10px;border:none;border-radius:10px;font-weight:600;background:transparent;">📤 支出</button>
                 <button class="income-active" data-type="income" style="flex:1;padding:10px;border:none;border-radius:10px;font-weight:600;background:transparent;">📥 收入</button>
             </div>
-            <div class="input-group"><label>金额</label><div style="display:flex;align-items:center;background:var(--bg);border-radius:12px;padding:6px 16px;"><span style="font-size:22px;font-weight:700;">¥</span><input type="text" inputmode="decimal" id="inputAmount" placeholder="0.00" style="flex:1;border:none;background:transparent;font-size:22px;outline:none;"></div></div>
+            <div class="input-group"><label>金额</label>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:flex;align-items:center;background:var(--bg);border-radius:12px;padding:6px 16px; flex:1;">
+                        <span style="font-size:22px;font-weight:700;">¥</span>
+                        <input type="text" inputmode="decimal" id="inputAmount" placeholder="0.00" style="flex:1;border:none;background:transparent;font-size:22px;outline:none;">
+                    </div>
+                    <button type="button" id="btnCalcOpen" style="width:44px;height:44px;border-radius:12px;background:var(--bg);border:2px solid var(--border);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🧮</button>
+                </div>
+            </div>
             <div style="display:flex; gap:10px; margin-bottom:14px;">
                 <div data-pay="wechat" style="flex:1;padding:14px;border:2px solid var(--wechat);border-radius:12px;text-align:center;font-weight:600;background:var(--wechat-light);">微信支付</div>
                 <div data-pay="alipay" style="flex:1;padding:14px;border:2px solid var(--border);border-radius:12px;text-align:center;font-weight:600;">支付宝</div>
@@ -110,6 +128,22 @@
             <div class="category-grid" id="categoryGrid" style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px;"></div>
             <div style="display:flex; gap:10px; margin-top:12px;"><input type="date" id="inputDate" style="flex:1;padding:12px;border:2px solid var(--border);border-radius:10px;"><input type="text" id="inputNote" placeholder="备注" style="flex:1;padding:12px;border:2px solid var(--border);border-radius:10px;"></div>
             <button id="btnSave" style="width:100%;margin-top:12px;padding:14px;background:#1a1a2e;color:#fff;border:none;border-radius:14px;font-weight:700;">✅ 保存记录</button>
+        </div>
+    </div>
+
+    <!-- 计算器弹窗 -->
+    <div class="modal-overlay" id="calcOverlay">
+        <div class="modal" style="max-width:320px; padding:16px; border-radius:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-weight:700;">计算器</span>
+                <button id="btnCalcClose" style="background:none;border:none;font-size:24px;cursor:pointer;">×</button>
+            </div>
+            <input type="text" id="calcDisplay" readonly style="width:100%;padding:12px;font-size:24px;text-align:right;border:2px solid var(--border);border-radius:10px;margin-bottom:12px;background:var(--bg);">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr); gap:8px;" id="calcButtons"></div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button id="btnCalcClear" style="flex:1;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:600;">清除</button>
+                <button id="btnCalcOk" style="flex:2;padding:10px;background:#1a1a2e;color:#fff;border:none;border-radius:10px;font-weight:600;">确定</button>
+            </div>
         </div>
     </div>
 
@@ -134,6 +168,19 @@
         </div>
     </div>
 
+    <!-- 分析弹窗 -->
+    <div class="modal-overlay" id="analysisOverlay">
+        <div class="modal" style="max-height:85vh; overflow-y:auto;">
+            <h3 style="text-align:center; margin-bottom:16px;">📊 支出分析</h3>
+            <div class="chart-tabs">
+                <div class="chart-tab active" data-chart="pie">🍩 饼图</div>
+                <div class="chart-tab" data-chart="treemap">🗺️ 树状图</div>
+            </div>
+            <div id="analysisChart" class="chart-container"></div>
+            <div style="text-align:center; font-size:13px; color:var(--text-secondary);" id="analysisSubtitle"></div>
+        </div>
+    </div>
+
     <!-- 安装提示 -->
     <div class="install-prompt" id="installPrompt">
         <span>📲 添加到主屏幕，使用更方便</span>
@@ -149,7 +196,7 @@ let currentMonth = new Date().toISOString().slice(0,7);
 let currentFilter = 'all';
 let editingId = null;
 
-// ★★★ 更新后的支出分类（新增还房贷/信用卡/花呗）★★★
+// ★ 支出分类（新增公积金、医保、商业保险）
 const expenseCategories = [
     {key:'food', emoji:'🍜', name:'餐饮'},
     {key:'shopping', emoji:'🛒', name:'购物'},
@@ -157,13 +204,17 @@ const expenseCategories = [
     {key:'entertainment', emoji:'🎮', name:'娱乐'},
     {key:'housing', emoji:'🏠', name:'住房'},
     {key:'medical', emoji:'💊', name:'医疗'},
+    {key:'medical_insurance', emoji:'🩺', name:'医保'},
+    {key:'housing_fund', emoji:'🧧', name:'公积金'},
+    {key:'commercial_insurance', emoji:'🛡️', name:'商业保险'},
     {key:'education', emoji:'📚', name:'教育'},
     {key:'clothing', emoji:'👗', name:'服饰'},
     {key:'social', emoji:'🎁', name:'人情'},
     {key:'other_expense', emoji:'💸', name:'其他'},
     {key:'mortgage', emoji:'🏦', name:'还房贷'},
     {key:'credit_card', emoji:'💳', name:'还信用卡'},
-    {key:'huabei', emoji:'🌸', name:'还花呗'}
+    {key:'car_loan', emoji:'🚗', name:'还车贷'},
+    {key:'online_loan', emoji:'💸', name:'还网贷'}
 ];
 const incomeCategories = [
     {key:'salary', emoji:'💰', name:'工资'},
@@ -303,16 +354,63 @@ document.getElementById('filterTabs').addEventListener('click',e=>{
 document.getElementById('fabBtn').addEventListener('click',openAddModal);
 document.getElementById('modalOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
 
-// ========== 导入导出 (Excel) ==========
+// ========== 计算器 ==========
+const calcOverlay = document.getElementById('calcOverlay');
+const calcDisplay = document.getElementById('calcDisplay');
+let calcExpression = '';
+
+function updateCalcDisplay() { calcDisplay.value = calcExpression || '0'; }
+function generateCalcButtons() {
+    const container = document.getElementById('calcButtons');
+    const buttons = ['7','8','9','÷','4','5','6','×','1','2','3','-','0','.','=','+'];
+    container.innerHTML = '';
+    buttons.forEach(btn => {
+        const el = document.createElement('button');
+        el.textContent = btn; el.className = 'calc-btn';
+        if (btn === '=') el.classList.add('equals');
+        if (['÷','×','-','+'].includes(btn)) el.classList.add('operator');
+        el.addEventListener('click', () => handleCalcButton(btn));
+        container.appendChild(el);
+    });
+}
+function handleCalcButton(value) {
+    if (value === '=') {
+        try {
+            let expr = calcExpression.replace(/×/g, '*').replace(/÷/g, '/');
+            const result = Function('"use strict"; return (' + expr + ')')();
+            if (isNaN(result) || !isFinite(result)) { calcDisplay.value = '错误'; calcExpression = ''; return; }
+            calcExpression = parseFloat(result.toFixed(10)).toString();
+        } catch (e) { calcDisplay.value = '错误'; calcExpression = ''; return; }
+    } else if (value === 'C') { calcExpression = ''; }
+    else {
+        if (['+','-','×','÷'].includes(value) && (calcExpression === '' || ['+','-','×','÷'].includes(calcExpression.slice(-1)))) return;
+        calcExpression += value;
+    }
+    updateCalcDisplay();
+}
+document.getElementById('btnCalcClear').addEventListener('click', ()=>{ calcExpression = ''; updateCalcDisplay(); });
+document.getElementById('btnCalcOk').addEventListener('click', ()=>{
+    const result = calcDisplay.value;
+    if (result && result !== '错误' && result !== '0') document.getElementById('inputAmount').value = result;
+    calcOverlay.classList.remove('active');
+});
+document.getElementById('btnCalcOpen').addEventListener('click', ()=>{
+    calcExpression = document.getElementById('inputAmount').value || '';
+    updateCalcDisplay();
+    calcOverlay.classList.add('active');
+});
+document.getElementById('btnCalcClose').addEventListener('click', ()=> calcOverlay.classList.remove('active'));
+calcOverlay.addEventListener('click', (e)=>{ if (e.target === calcOverlay) calcOverlay.classList.remove('active'); });
+generateCalcButtons();
+
+// ========== 导入导出 ==========
 const importOverlay = document.getElementById('importOverlay');
 document.getElementById('btnImport').addEventListener('click',()=>importOverlay.classList.add('active'));
 document.getElementById('btnCancelImport').addEventListener('click',()=>importOverlay.classList.remove('active'));
 importOverlay.addEventListener('click',e=>{ if(e.target===importOverlay) importOverlay.classList.remove('active'); });
-
 document.getElementById('btnFileImport').addEventListener('click',()=>document.getElementById('fileInput').click());
 document.getElementById('fileInput').addEventListener('change',function(e){
-    const file = e.target.files[0];
-    if(!file) return;
+    const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = function(ev){
         try {
@@ -321,15 +419,11 @@ document.getElementById('fileInput').addEventListener('change',function(e){
             const firstSheet = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheet];
             const jsonData = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:''});
-            const text = jsonData.map(row => row.join('\t')).join('\n');
-            document.getElementById('importTextarea').value = text;
-        } catch (err) {
-            alert('无法解析文件，请确认是Excel或CSV格式');
-        }
+            document.getElementById('importTextarea').value = jsonData.map(row => row.join('\t')).join('\n');
+        } catch (err) { alert('无法解析文件'); }
     };
     reader.readAsArrayBuffer(file);
 });
-
 document.getElementById('btnExecuteImport').addEventListener('click',()=>{
     const text = document.getElementById('importTextarea').value.trim();
     if(!text) return;
@@ -338,57 +432,49 @@ document.getElementById('btnExecuteImport').addEventListener('click',()=>{
     const header = lines[0].toLowerCase();
     const hasHeader = header.includes('日期') || header.includes('金额') || header.includes('支付');
     const dataLines = hasHeader ? lines.slice(1) : lines;
-
     dataLines.forEach(line => {
         const cols = line.split(/[,\t\s]+/).filter(c=>c.trim());
         if(cols.length < 3) return;
         const dateStr = cols[0].replace(/["']/g,'');
         if(!/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(dateStr)) return;
-
         let amountIdx = -1;
-        for(let i=1;i<cols.length;i++){
-            if(/[¥￥]?\d+\.?\d*/.test(cols[i].replace(/[¥￥,]/g,'')) && !isNaN(parseFloat(cols[i].replace(/[¥￥,]/g,'')))){
-                amountIdx = i; break;
-            }
-        }
+        for(let i=1;i<cols.length;i++) if(/[¥￥]?\d+\.?\d*/.test(cols[i].replace(/[¥￥,]/g,'')) && !isNaN(parseFloat(cols[i].replace(/[¥￥,]/g,'')))){ amountIdx = i; break; }
         if(amountIdx===-1) return;
         const amount = Math.abs(parseFloat(cols[amountIdx].replace(/[¥￥,]/g,'')));
         if(isNaN(amount) || amount<=0) return;
-
         const typeCol = cols.find(c=>c==='支出'||c==='收入'||c==='expense'||c==='income');
         const type = (typeCol==='收入'||typeCol==='income') ? 'income' : 'expense';
-
         const payCol = cols.find(c=>c.includes('微信')||c.includes('wechat')||c.includes('支付宝')||c.includes('alipay'));
         const payMethod = payCol?.includes('微信')||payCol?.includes('wechat') ? 'wechat' : 'alipay';
-
         const desc = cols[1]?.replace(/["']/g,'') || '';
         const category = mapCategory(desc, type);
-
         const date = dateStr.replace(/\//g,'-');
-        const exists = records.some(r=>r.date===date && Math.abs(r.amount-amount)<0.01 && r.payMethod===payMethod && r.type===type);
-        if(exists) return;
-
-        records.push({
-            id: Date.now() + Math.random(),
-            amount, type, payMethod, category, date,
-            note: cols.slice(amountIdx+1).join(' ').replace(/["']/g,'').trim().substring(0,30),
-            createdAt: Date.now()
-        });
+        if(records.some(r=>r.date===date && Math.abs(r.amount-amount)<0.01 && r.payMethod===payMethod && r.type===type)) return;
+        records.push({ id: Date.now() + Math.random(), amount, type, payMethod, category, date, note: cols.slice(amountIdx+1).join(' ').replace(/["']/g,'').trim().substring(0,30), createdAt: Date.now() });
         imported++;
     });
-
     document.getElementById('importResult').textContent = `✅ 成功导入 ${imported} 条记录`;
     if(imported>0) { saveRecords(); renderAll(); }
     document.getElementById('importTextarea').value = '';
 });
 
-// ★★★ 更新后的分类映射（支持还款关键词）★★★
+// ★★★ 更新后的映射规则（支持公积金、医保、商业保险）★★★
 function mapCategory(desc, type) {
-    const cats = type==='expense'?expenseCategories:incomeCategories;
     const lower = desc.toLowerCase();
+    // 还款相关
     if(lower.includes('房贷')||lower.includes('按揭')) return 'mortgage';
     if(lower.includes('信用卡')||lower.includes('credit card')) return 'credit_card';
-    if(lower.includes('花呗')||lower.includes('借呗')) return 'huabei';
+    if(lower.includes('车贷')||lower.includes('汽车贷款')||lower.includes('车款')) return 'car_loan';
+    if(lower.includes('花呗')||lower.includes('借呗')||lower.includes('京东白条')||lower.includes('白条')||
+       lower.includes('微粒贷')||lower.includes('度小满')||lower.includes('网贷')||lower.includes('贷款')) return 'online_loan';
+    // 公积金
+    if(lower.includes('公积金')||lower.includes('住房公积金')) return 'housing_fund';
+    // 医保
+    if(lower.includes('医保')||lower.includes('医疗保险')||lower.includes('社保医疗')) return 'medical_insurance';
+    // 商业保险（避免与医保、车贷等冲突）
+    if(lower.includes('商业保险')||lower.includes('人寿保险')||lower.includes('意外险')||
+       lower.includes('保险') && !lower.includes('车贷') && !lower.includes('医保') && !lower.includes('医疗')) return 'commercial_insurance';
+    // 日常分类
     if(lower.includes('餐')||lower.includes('食')||lower.includes('饭')) return 'food';
     if(lower.includes('购物')||lower.includes('超市')) return 'shopping';
     if(lower.includes('交通')||lower.includes('打车')||lower.includes('地铁')) return 'transport';
@@ -396,7 +482,7 @@ function mapCategory(desc, type) {
     if(lower.includes('房')||lower.includes('租')||lower.includes('水电')) return 'housing';
     if(lower.includes('医')||lower.includes('药')) return 'medical';
     if(lower.includes('工资')||lower.includes('薪')) return 'salary';
-    return cats[0].key;
+    return type==='expense' ? 'other_expense' : 'other_income';
 }
 
 // 导出 Excel
@@ -406,19 +492,96 @@ document.getElementById('btnExport').addEventListener('click',()=>{
     const sheetData = [['日期', '类型', '金额', '支付方式', '分类', '备注']];
     data.forEach(r => {
         const cat = (r.type==='expense'?expenseCategories:incomeCategories).find(c=>c.key===r.category);
-        sheetData.push([
-            r.date,
-            r.type==='expense'?'支出':'收入',
-            r.amount.toFixed(2),
-            r.payMethod==='wechat'?'微信支付':'支付宝',
-            cat?.name||r.category,
-            r.note||''
-        ]);
+        sheetData.push([r.date, r.type==='expense'?'支出':'收入', r.amount.toFixed(2), r.payMethod==='wechat'?'微信支付':'支付宝', cat?.name||r.category, r.note||'']);
     });
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "记账本");
     XLSX.writeFile(wb, `记账本_${currentMonth}_${currentFilter}.xlsx`);
+});
+
+// ========== 分析功能 ==========
+const analysisOverlay = document.getElementById('analysisOverlay');
+const analysisSubtitle = document.getElementById('analysisSubtitle');
+let analysisChart = null;
+let currentChartType = 'pie';
+
+document.getElementById('btnAnalysis').addEventListener('click', openAnalysis);
+analysisOverlay.addEventListener('click', e => { if (e.target === analysisOverlay) analysisOverlay.classList.remove('active'); });
+
+document.querySelectorAll('.chart-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        currentChartType = this.dataset.chart;
+        renderAnalysisChart();
+    });
+});
+
+function openAnalysis() {
+    analysisOverlay.classList.add('active');
+    const filterLabel = currentFilter === 'all' ? '所有支付方式' : (currentFilter === 'wechat' ? '微信支付' : '支付宝支付');
+    analysisSubtitle.textContent = `当前月份：${currentMonth} · ${filterLabel}`;
+    setTimeout(renderAnalysisChart, 100);
+}
+
+function renderAnalysisChart() {
+    const container = document.getElementById('analysisChart');
+    if (!container) return;
+    if (analysisChart) { analysisChart.dispose(); analysisChart = null; }
+    analysisChart = echarts.init(container);
+
+    const expenseRecords = getFilteredRecords().filter(r => r.type === 'expense');
+    const categoryMap = {};
+    expenseRecords.forEach(r => {
+        const cat = expenseCategories.find(c => c.key === r.category);
+        const name = cat ? cat.name : (r.category || '其他');
+        categoryMap[name] = (categoryMap[name] || 0) + r.amount;
+    });
+
+    const categories = Object.keys(categoryMap);
+    const values = categories.map(k => categoryMap[k]);
+    const total = values.reduce((s, v) => s + v, 0);
+
+    if (categories.length === 0) {
+        analysisChart.setOption({ title: { text: '暂无支出数据', left: 'center', top: 'center' } });
+        return;
+    }
+
+    const colors = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272','#fc8452','#9a60b4','#ea7ccc','#b5c7e2','#ff99c8','#a5d7e8','#6e7074'];
+
+    if (currentChartType === 'pie') {
+        analysisChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+            legend: { orient: 'vertical', right: 10, top: 20, itemWidth: 8, itemHeight: 8, textStyle: { fontSize: 11 } },
+            series: [{
+                type: 'pie', radius: ['40%', '70%'], center: ['40%', '50%'],
+                avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+                label: { show: true, formatter: '{b}\n{d}%', fontSize: 10 },
+                data: categories.map((name, i) => ({ name, value: categoryMap[name], itemStyle: { color: colors[i % colors.length] } }))
+            }]
+        });
+    } else if (currentChartType === 'treemap') {
+        analysisChart.setOption({
+            tooltip: { formatter: (params) => `${params.name}: ¥${params.value} (${(params.value/total*100).toFixed(1)}%)` },
+            series: [{
+                type: 'treemap',
+                data: categories.map((name, i) => ({ name, value: categoryMap[name], itemStyle: { color: colors[i % colors.length] } })),
+                label: { show: true, formatter: '{b}\n¥{c}', fontSize: 10 },
+                upperLabel: { show: true, height: 30 },
+                roam: false,
+                width: '100%', height: '100%'
+            }]
+        });
+    }
+    analysisChart.resize();
+}
+
+analysisOverlay.addEventListener('transitionend', () => {
+    if (!analysisOverlay.classList.contains('active') && analysisChart) {
+        analysisChart.dispose(); analysisChart = null;
+    }
 });
 
 // PWA 安装
